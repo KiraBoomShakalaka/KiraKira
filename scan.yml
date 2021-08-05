@@ -1,0 +1,236 @@
+# 
+parameters:
+- name: sonar_scan
+  displayName: 'Enable/Disable sonarqube scan'
+  type: boolean
+  default: false
+
+- name: checkmarx_scan
+  displayName: 'Enable/Disable checkmarx scan'
+  type: boolean
+  default: false
+
+- name: snyk_scan
+  displayName: 'Enable/Disable snyk scan'
+  type: boolean
+  default: false
+
+- name: custom_steps
+  type: boolean
+  default: false
+
+- name: custom_build_steps
+  type: stepList 
+  default: []
+
+- name: repo_name
+  displayName: 'Repository name to be scanned'
+  type: string
+  default: none
+
+- name: branch_name
+  displayName: 'Repository branch name to be scanned'
+  type: string
+  default: main
+
+- name: build_tool
+  displayName: 'Build tool'
+  type: string
+  default: none
+  values:
+    - maven
+    - gradle
+    - npm
+    - msbuild
+    - none
+
+# Checkmarx parameters
+- name: cx_service
+  displayName: 'Checkmarx service connection name'
+  type: string
+  default: ''
+
+- name: cx_pool_vmImage
+  displayName: 'Azure pipelines vm image to be used for checkmarx scan'
+  type: string
+  default: 'ubuntu-latest'
+
+- name: cx_preset
+  displayName: 'Checkmarx scan preset'
+  type: string
+  default: 'ASA_SDLC_Ready'
+
+- name: cx_team
+  displayName: 'Checkmarx team name'
+  type: string
+  default: ''
+
+- name: cx_exclude
+  displayName: 'Folders to exclude from scan'
+  type: string
+  default: ''
+
+- name: cx_files_exclude
+  displayName: 'Files to exclude from scan'
+  type: string
+  default: ''
+
+- name: cx_enable_snyc
+  displayName: 'Enable/Disable synchronus scan mode'
+  type: boolean
+  default: false
+
+- name: cx_inc_scan
+  displayName: 'Enable/Disable incremental scan'
+  type: boolean
+  default: true
+
+- name: cx_enable_thre
+  displayName: 'Enable/Disable vulnerability threshold'
+  type: boolean
+  default: false
+
+- name: cx_thre_high
+  displayName: 'Threshold for High severity issues'
+  type: string
+  default: ''
+
+- name: cx_thre_med
+  displayName: 'Threshold for Medium severity issues'
+  type: string
+  default: ''
+  
+- name: cx_thre_low
+  displayName: 'Threshold for Low severity issues'
+  type: string
+  default: ''
+
+# Maven parameters
+- name: mvn_goals
+  type: string
+  default: 'install'
+
+- name: mvn_pom
+  type: string
+  default: 'pom.xml'
+
+- name: mvn_opts
+  type: string
+  default: ''
+
+# NPM parameters
+- name: npm_workingdir
+  type: string
+  default: ''
+
+########################################
+
+- name: snyk_service
+  displayName: 'Snyk service connection name'
+  type: string
+  default: ''
+
+- name: snyk_pool_vmImage
+  displayName: 'Azure pipelines vm image to be used for snyk scan'
+  type: string
+  default: 'ubuntu-latest'
+
+- name: snyk_failOnissue
+  displayName: 'Fail build on Snyk issues'
+  type: boolean
+  default: false
+
+- name: snyk_severityThreshold
+  displayName: 'Severity threshold on Snyk issues'
+  type: string
+  default: 'low'
+
+- name: snyk_org
+  displayName: 'Snyk organization ID'
+  type: string
+  default: ''
+
+- name: snyk_mainifest
+  displayName: 'Snky Target File'
+  type: string
+  default: ''
+
+- name: snyk_proj_name
+  displayName: 'Snky Project Name'
+  type: string
+  default: ''
+
+- name: snyk_addArgs
+  displayName: 'Additional scan arguments'
+  type: string
+  default: ''
+
+- name: snyk_testDir
+  displayName: 'Test (working) directory '
+  type: string
+  default: '$(Build.SourcesDirectory)'
+
+- name: snyk_mvnwExisted
+  displayName: 'Check if mvnw file existed'
+  type: boolean
+  default: false
+
+########################################
+
+variables:
+  sourceBranchCheck: $[replace('${{ parameters.branch_name }}', 'refs/heads/', '')]
+  sourceBranchSonar: $[replace('${{ parameters.branch_name }}', 'refs/heads/', '')]
+  sourceBranchSnyk: $[replace('${{ parameters.branch_name }}', 'refs/heads/', '')]
+
+trigger: none
+
+stages:
+- stage: Security_Scan
+  jobs:
+  - ${{ if eq(parameters.sonar_scan, true) }}:
+    - template: Secure_Scan_Jobs/sonar_scan.yml
+      parameters:
+        repoName: ${{ parameters.repo_name }}
+  - ${{ if eq(parameters.checkmarx_scan, true) }}:  
+    - template: Secure_Scan_Jobs/checkmarx_scan.yml
+      parameters:
+        repoName: ${{ parameters.repo_name }}
+        CxEnableSyncScan: ${{ parameters.cx_enable_snyc }}
+        CxPoolVmImage: ${{ parameters.cx_pool_vmImage }}
+        CxIncScan: ${{ parameters.cx_inc_scan }}
+        CxServiceConnection: ${{ parameters.cx_service }}
+        CxPreset: ${{ parameters.cx_preset }}
+        CxTeamName: ${{ parameters.cx_team }}
+        CxFolderExclusion: ${{ parameters.cx_exclude }}
+        defaultFolderExclusion: 'cvs, .svn, .hg , .git, .bzr, bin , obj,  backup, .idea, node_modules'
+        # defaultFolderExclusion: 'cvs, .svn, .mvn, .hg, .git, .bzr, bin , obj,  backup, .idea, node_modules, test, Test, __tests__, e2e, docs, vscode, .vscode,tests, manifests, external-libs, lib, pods, vendor, packages, target, logs, api-docs, font, scripts, Scripts, assets, css, plugins'
+        CxFilesExclusion: ${{ parameters.cx_files_exclude }}
+        CxEnableThreshold: ${{ parameters.cx_enable_thre }}
+        CxThresholdHigh: ${{ parameters.cx_thre_high }}
+        CxThresholdMedium: ${{ parameters.cx_thre_med }}
+        CxThresholdLow: ${{ parameters.cx_thre_low }}
+  - ${{ if eq(parameters.snyk_scan, true) }}:  
+    - template: Secure_Scan_Jobs/snyk_scan.yml
+      parameters:
+        repoName: ${{ parameters.repo_name }}
+        poolVmImage: ${{ parameters.snyk_pool_vmImage }}
+        buildTool: ${{ parameters.build_tool }}
+        # Custom steps
+        customSteps: ${{ parameters.custom_steps }}
+        customBuildSteps: ${{ parameters.custom_build_steps }}
+        # Maven parameters
+        mavenGoals: ${{ parameters.mvn_goals }}
+        mavenPomFile: ${{ parameters.mvn_pom }}
+        mavenOptions: ${{ parameters.mvn_opts }}
+        # Npm parameters
+        npmWorkingDir: ${{ parameters.npm_workingdir }}
+        # Snyk parameters
+        serviceConnection: ${{ parameters.snyk_service }}
+        severityThreshold: ${{ parameters.snyk_severityThreshold }}
+        failOnIssues: ${{ parameters.snyk_failOnissue }}
+        organization: ${{ parameters.snyk_org }}
+        additionalArguments: ${{ parameters.snyk_addArgs }}
+        targetFile: ${{ parameters.snyk_mainifest }}
+        projectName: ${{ parameters.snyk_proj_name}}
+        testDirectory: ${{ parameters.snyk_testDir}}
+        mvnwExisted: ${{parameters.snyk_mvnwExisted}}
